@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT Geospatial Intelligence Platform</title>
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .controls h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 5px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 5px;
+            color: #aaa;
+        }
+
+        .layer-toggle {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .layer-toggle input[type="checkbox"] {
+            margin-right: 8px;
+        }
+
+        .layer-toggle span {
+            font-size: 14px;
+        }
+
+        .layer-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .stats {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 8px;
+            color: white;
+            z-index: 1000;
+            font-size: 12px;
+        }
+
+        .stats div {
+            margin-bottom: 3px;
+        }
+
+        .refresh-btn {
+            width: 100%;
+            padding: 8px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        .refresh-btn:hover {
+            background: #1d4ed8;
+        }
+
+        .refresh-btn:disabled {
+            background: #6b7280;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .health-status {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+
+        .health-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .health-item.healthy {
+            color: #22c55e;
+        }
+
+        .health-item.unhealthy {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="controls">
+        <h2>🌍 OSINT Intelligence Map</h2>
+
+        <div class="control-group">
+            <label>Layer Controls</label>
+            <div class="layer-toggle">
+                <span class="layer-icon">✈️</span>
+                <input type="checkbox" id="toggle-aircraft" checked>
+                <span>Aircraft</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">🚢</span>
+                <input type="checkbox" id="toggle-vessel" checked>
+                <span>Vessels</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">🔥</span>
+                <input type="checkbox" id="toggle-thermal" checked>
+                <span>Thermal Events</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">🛰️</span>
+                <input type="checkbox" id="toggle-satellite" checked>
+                <span>Satellites</span>
+            </div>
+        </div>
+
+        <button class="refresh-btn" id="refresh-btn">
+            Refresh Data
+        </button>
+
+        <div class="health-status" id="health-status">
+            <label>Source Status</label>
+            <div class="health-item" id="health-opensky">
+                <span>OpenSky</span>
+                <span>Checking...</span>
+            </div>
+            <div class="health-item" id="health-aisstream">
+                <span>AISStream</span>
+                <span>Checking...</span>
+            </div>
+            <div class="health-item" id="health-firms">
+                <span>FIRMS</span>
+                <span>Checking...</span>
+            </div>
+            <div class="health-item" id="health-celestrak">
+                <span>CelesTrak</span>
+                <span>Checking...</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="stats" id="stats">
+        <div>Total Entities: <span id="total-count">0</span></div>
+        <div>Aircraft: <span id="aircraft-count">0</span></div>
+        <div>Vessels: <span id="vessel-count">0</span></div>
+        <div>Thermal: <span id="thermal-count">0</span></div>
+        <div>Satellites: <span id="satellite-count">0</span></div>
+        <div>Last Update: <span id="last-update">Never</span></div>
+    </div>
+
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script src="src/main.js?v=20260314-2"></script>
+</body>
+</html>
