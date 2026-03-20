@@ -20,8 +20,14 @@ from app.adapters import (
     AISStreamAdapter,
     FIRMSAdapter,
     CelesTrakAdapter,
+    RadioAdapter,
+    OilRigAdapter,
+    PowerGridAdapter,
+    FIRAdapter,
+    MaritimeAdapter,
 )
 from app.cache import cache
+from app.reporting import REPORT_SOURCES
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +39,17 @@ class GeoJSONResponse(BaseModel):
     type: str = "FeatureCollection"
     features: List[GeoJSONFeature]
     metadata: dict
+
+
+def get_fetch_kwargs(query: UnifiedQuery, source: Optional[DataSource] = None) -> dict:
+    """Convert a query into adapter fetch kwargs."""
+    if query.bbox:
+        return query.bbox.model_dump()
+    if source and source.value in REPORT_SOURCES:
+        default_bbox = REPORT_SOURCES[source.value].default_bbox
+        if default_bbox:
+            return default_bbox.model_dump()
+    return {}
 
 
 @router.get("/unified", response_model=GeoJSONResponse)
@@ -110,12 +127,23 @@ async def get_unified_data(
             "aisstream": len([f for f in filtered_features if f.properties.get("source") == "aisstream"]),
             "firms": len([f for f in filtered_features if f.properties.get("source") == "firms"]),
             "celestrak": len([f for f in filtered_features if f.properties.get("source") == "celestrak"]),
+            "radio_api": len([f for f in filtered_features if f.properties.get("source") == "radio_api"]),
+            "oil_rig_api": len([f for f in filtered_features if f.properties.get("source") == "oil_rig_api"]),
+            "power_grid_api": len([f for f in filtered_features if f.properties.get("source") == "power_grid_api"]),
+            "fir_api": len([f for f in filtered_features if f.properties.get("source") == "fir_api"]),
+            "maritime_api": len([f for f in filtered_features if f.properties.get("source") == "maritime_api"]),
         },
         "entity_types": {
             "aircraft": len([f for f in filtered_features if f.properties.get("entity_type") == "aircraft"]),
             "vessel": len([f for f in filtered_features if f.properties.get("entity_type") == "vessel"]),
             "thermal_event": len([f for f in filtered_features if f.properties.get("entity_type") == "thermal_event"]),
             "satellite": len([f for f in filtered_features if f.properties.get("entity_type") == "satellite"]),
+            "radio_station": len([f for f in filtered_features if f.properties.get("entity_type") == "radio_station"]),
+            "oil_rig": len([f for f in filtered_features if f.properties.get("entity_type") == "oil_rig"]),
+            "power_grid": len([f for f in filtered_features if f.properties.get("entity_type") == "power_grid"]),
+            "power_substation": len([f for f in filtered_features if f.properties.get("entity_type") == "power_substation"]),
+            "fir": len([f for f in filtered_features if f.properties.get("entity_type") == "fir"]),
+            "maritime_boundary": len([f for f in filtered_features if f.properties.get("entity_type") == "maritime_boundary"]),
         },
     }
 
@@ -148,6 +176,16 @@ async def fetch_all_sources(
             tasks.append(fetch_firms(query, use_cache))
         elif source == DataSource.CELESTRAK:
             tasks.append(fetch_celestrak(query, use_cache))
+        elif source == DataSource.RADIO_API:
+            tasks.append(fetch_radio(query, use_cache))
+        elif source == DataSource.OIL_RIG_API:
+            tasks.append(fetch_oil_rig(query, use_cache))
+        elif source == DataSource.POWER_GRID_API:
+            tasks.append(fetch_power_grid(query, use_cache))
+        elif source == DataSource.FIR_API:
+            tasks.append(fetch_fir(query, use_cache))
+        elif source == DataSource.MARITIME_API:
+            tasks.append(fetch_maritime(query, use_cache))
 
     # Execute all tasks concurrently
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -172,6 +210,7 @@ async def fetch_opensky(
     try:
         features = await adapter.fetch_with_retry(
             timeout=30.0,
+            **get_fetch_kwargs(query),
         )
 
         # Cache features
@@ -222,6 +261,7 @@ async def fetch_firms(
     try:
         features = await adapter.fetch_with_retry(
             timeout=30.0,
+            **get_fetch_kwargs(query),
         )
 
         # Cache features
@@ -246,7 +286,8 @@ async def fetch_celestrak(
 
     try:
         features = await adapter.fetch_with_retry(
-            timeout=30.0,
+            timeout=REPORT_SOURCES[DataSource.OIL_RIG_API.value].timeout_s,
+            **get_fetch_kwargs(query, DataSource.OIL_RIG_API),
         )
 
         # Cache features
@@ -257,6 +298,135 @@ async def fetch_celestrak(
 
     except Exception as e:
         logger.error(f"CelesTrak fetch error: {e}")
+        return []
+    finally:
+        await adapter.close()
+
+
+async def fetch_radio(
+    query: UnifiedQuery,
+    use_cache: bool = True,
+) -> List[GeoJSONFeature]:
+    """Fetch radio station data from Radio Browser API."""
+    adapter = RadioAdapter()
+
+    try:
+        features = await adapter.fetch_with_retry(
+            timeout=30.0,
+        )
+
+        # Cache features
+        if use_cache and features:
+            await cache.set_many(features)
+
+        return features
+
+    except Exception as e:
+        logger.error(f"Radio API fetch error: {e}")
+        return []
+    finally:
+        await adapter.close()
+
+
+async def fetch_oil_rig(
+    query: UnifiedQuery,
+    use_cache: bool = True,
+) -> List[GeoJSONFeature]:
+    """Fetch oil rig data from Oil Rig API."""
+    adapter = OilRigAdapter()
+
+    try:
+        features = await adapter.fetch_with_retry(
+            timeout=REPORT_SOURCES[DataSource.OIL_RIG_API.value].timeout_s,
+            **get_fetch_kwargs(query, DataSource.OIL_RIG_API),
+        )
+
+        # Cache features
+        if use_cache and features:
+            await cache.set_many(features)
+
+        return features
+
+    except Exception as e:
+        logger.error(f"Oil Rig API fetch error: {e}")
+        return []
+    finally:
+        await adapter.close()
+
+
+async def fetch_power_grid(
+    query: UnifiedQuery,
+    use_cache: bool = True,
+) -> List[GeoJSONFeature]:
+    """Fetch power grid data from OpenStreetMap Overpass API."""
+    adapter = PowerGridAdapter()
+
+    try:
+        features = await adapter.fetch_with_retry(
+            timeout=REPORT_SOURCES[DataSource.POWER_GRID_API.value].timeout_s,
+            **get_fetch_kwargs(query, DataSource.POWER_GRID_API),
+        )
+
+        # Cache features
+        if use_cache and features:
+            await cache.set_many(features)
+
+        return features
+
+    except Exception as e:
+        logger.error(f"Power Grid API fetch error: {e}")
+        return []
+    finally:
+        await adapter.close()
+
+
+async def fetch_fir(
+    query: UnifiedQuery,
+    use_cache: bool = True,
+) -> List[GeoJSONFeature]:
+    """Fetch FIR data from ICAO."""
+    adapter = FIRAdapter()
+
+    try:
+        features = await adapter.fetch_with_retry(
+            timeout=30.0,
+            **get_fetch_kwargs(query, DataSource.FIR_API),
+        )
+
+        # Cache features
+        if use_cache and features:
+            await cache.set_many(features)
+
+        return features
+
+    except Exception as e:
+        logger.error(f"FIR API fetch error: {e}")
+        return []
+    finally:
+        await adapter.close()
+
+
+async def fetch_maritime(
+    query: UnifiedQuery,
+    use_cache: bool = True,
+) -> List[GeoJSONFeature]:
+    """Fetch maritime boundary data from Natural Earth."""
+    adapter = MaritimeAdapter()
+
+    try:
+        features = await adapter.fetch_with_retry(
+            timeout=30.0,
+            **get_fetch_kwargs(query, DataSource.MARITIME_API),
+        )
+
+        # Cache features
+        if use_cache and features:
+            await cache.set_many(features)
+
+        return features
+
+    except Exception as e:
+        logger.error(f"Maritime API fetch error: {e}")
         return []
     finally:
         await adapter.close()

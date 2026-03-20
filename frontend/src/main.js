@@ -138,13 +138,123 @@ function addLayers() {
         }
     });
 
+    // Radio station layer
+    map.addSource('radio', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addLayer({
+        id: 'radio',
+        type: 'circle',
+        source: 'radio',
+        paint: {
+            'circle-radius': 8,
+            'circle-color': '#a855f7',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#7c3aed',
+            'circle-opacity': 0.8
+        }
+    });
+
+    // Oil rig layer
+    map.addSource('oilrig', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addLayer({
+        id: 'oilrig',
+        type: 'circle',
+        source: 'oilrig',
+        paint: {
+            'circle-radius': 7,
+            'circle-color': '#14b8a6',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#0d9488',
+            'circle-opacity': 0.8
+        }
+    });
+
+    // Power grid line layer
+    map.addSource('powergrid', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addLayer({
+        id: 'powergrid',
+        type: 'line',
+        source: 'powergrid',
+        paint: {
+            'line-width': 2,
+            'line-color': '#06b6d4',
+            'line-opacity': 0.6
+        }
+    });
+
+    // Power substation layer
+    map.addSource('substation', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addLayer({
+        id: 'substation',
+        type: 'circle',
+        source: 'substation',
+        paint: {
+            'circle-radius': 5,
+            'circle-color': '#ec4899',
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#db2777',
+            'circle-opacity': 0.8
+        }
+    });
+
+    // FIR layer
+    map.addSource('fir', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addLayer({
+        id: 'fir',
+        type: 'fill',
+        source: 'fir',
+        paint: {
+            'fill-color': '#6366f1',
+            'fill-opacity': 0.15,
+            'stroke-color': '#4f46e5',
+            'stroke-width': 1
+        }
+    });
+
+    // Maritime boundary layer
+    map.addSource('maritime', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+    });
+
+    map.addLayer({
+        id: 'maritime',
+        type: 'fill',
+        source: 'maritime',
+        paint: {
+            'fill-color': '#3b82f6',
+            'fill-opacity': 0.1,
+            'stroke-color': '#2563eb',
+            'stroke-width': 1
+        }
+    });
+
     // Add popups
     addPopups();
 }
 
 // Add popups for each layer
 function addPopups() {
-    const layers = ['aircraft', 'vessel', 'thermal', 'satellite'];
+    const layers = ['aircraft', 'vessel', 'thermal', 'satellite', 'radio', 'oilrig', 'substation'];
 
     layers.forEach(layerId => {
         map.on('click', layerId, (e) => {
@@ -164,6 +274,13 @@ function addPopups() {
                 if (value) {
                     popupRows.push([label, value]);
                 }
+            }
+
+            // Add radio-specific controls
+            if (props.entity_type === 'radio_station' && props.meta_url_resolved) {
+                popupContent += `<div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #444;">`;
+                popupContent += `<button onclick="playRadioStation('${escapeHtml(props.meta_url_resolved)}', '${escapeHtml(props.meta_name)}')" style="width: 100%; padding: 8px; background: #a855f7; color: white; border: none; border-radius: 4px; cursor: pointer;">📻 Play Live</button>`;
+                popupContent += `</div>`;
             }
 
             popupContent += popupRows
@@ -189,6 +306,52 @@ function addPopups() {
             map.getCanvas().style.cursor = '';
         });
     });
+
+    // Add click handler for FIR layer
+    map.on('click', 'fir', (e) => {
+        const props = e.features[0].properties || {};
+        const popupContent = `<div style="padding: 10px; min-width: 200px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px;">${escapeHtml(props.popup_title)}</h3>
+            <div style="font-size: 12px;">
+                <div><strong>Country:</strong> ${escapeHtml(props.meta_country)}</div>
+                <div><strong>ICAO Code:</strong> ${escapeHtml(props.meta_icao_code)}</div>
+            </div>
+        </div>`;
+        new maplibregl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(popupContent)
+            .addTo(map);
+    });
+
+    // Add click handler for maritime layer
+    map.on('click', 'maritime', (e) => {
+        const props = e.features[0].properties || {};
+        const popupContent = `<div style="padding: 10px; min-width: 200px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 14px;">${escapeHtml(props.popup_title)}</h3>
+            <div style="font-size: 12px;">
+                <div><strong>Water Type:</strong> ${escapeHtml(props.meta_water_type)}</div>
+                <div><strong>Country:</strong> ${escapeHtml(props.meta_country)}</div>
+                <div><strong>International:</strong> ${props.meta_is_international ? 'Yes' : 'No'}</div>
+            </div>
+        </div>`;
+        new maplibregl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(popupContent)
+            .addTo(map);
+    });
+}
+
+// Play radio station
+function playRadioStation(url, name) {
+    const player = document.getElementById('radio-player');
+    const info = document.getElementById('radio-station-info');
+
+    player.src = url;
+    player.play();
+    info.textContent = `Now playing: ${name}`;
+
+    // Show player container
+    document.getElementById('radio-player-container').style.display = 'block';
 }
 
 // Get entity title for popup
@@ -206,6 +369,16 @@ function getEntityTitle(props) {
             return 'Thermal Event';
         case 'satellite':
             return metadata.name?.trim() || metadata.norad_id || `Satellite ${identifier}`;
+        case 'radio_station':
+            return metadata.name?.trim() || `Radio Station ${identifier}`;
+        case 'oil_rig':
+            return metadata.name?.trim() || `Oil Rig ${identifier}`;
+        case 'power_substation':
+            return metadata.name?.trim() || `Substation ${identifier}`;
+        case 'fir':
+            return metadata.name?.trim() || `FIR ${identifier}`;
+        case 'maritime_boundary':
+            return metadata.name?.trim() || `Maritime Boundary ${identifier}`;
         default:
             return formatKey(type);
     }
@@ -226,14 +399,29 @@ function formatKey(key) {
 
 function normalizeFeatureForMap(feature) {
     const properties = normalizeFeatureProperties(feature.properties);
-    const metadataKeys = [];
+    const metadataKeys = new Set(
+        String(properties.metadata_keys || '')
+            .split(',')
+            .map(key => key.trim())
+            .filter(Boolean)
+    );
     const flatMetadata = {};
+
+    for (const [key, value] of Object.entries(properties)) {
+        if (!key.startsWith('meta_')) continue;
+
+        const formattedValue = formatDisplayValue(value);
+        if (!formattedValue) continue;
+
+        metadataKeys.add(key.slice(5));
+        flatMetadata[key] = value;
+    }
 
     for (const [key, value] of Object.entries(properties.metadata)) {
         const formattedValue = formatDisplayValue(value);
         if (!formattedValue) continue;
 
-        metadataKeys.push(key);
+        metadataKeys.add(key);
         flatMetadata[`meta_${key}`] = serializeFeatureProperty(value);
     }
 
@@ -244,8 +432,8 @@ function normalizeFeatureForMap(feature) {
             entity_type: properties.entity_type || '',
             identifier: properties.identifier || '',
             timestamp: properties.timestamp || '',
-            popup_title: getEntityTitle(properties),
-            metadata_keys: metadataKeys.join(','),
+            popup_title: properties.popup_title || getEntityTitle(properties),
+            metadata_keys: Array.from(metadataKeys).join(','),
             ...flatMetadata,
         },
     };
@@ -359,13 +547,55 @@ async function fetchData() {
 
         // Add entity type filters based on layer toggles
         const entityTypes = [];
-        if (document.getElementById('toggle-aircraft').checked) entityTypes.push('aircraft');
-        if (document.getElementById('toggle-vessel').checked) entityTypes.push('vessel');
-        if (document.getElementById('toggle-thermal').checked) entityTypes.push('thermal_event');
-        if (document.getElementById('toggle-satellite').checked) entityTypes.push('satellite');
+        const sources = [];
+        
+        if (document.getElementById('toggle-aircraft').checked) {
+            entityTypes.push('aircraft');
+            sources.push('opensky');
+        }
+        if (document.getElementById('toggle-vessel').checked) {
+            entityTypes.push('vessel');
+            sources.push('aisstream');
+        }
+        if (document.getElementById('toggle-thermal').checked) {
+            entityTypes.push('thermal_event');
+            sources.push('firms');
+        }
+        if (document.getElementById('toggle-satellite').checked) {
+            entityTypes.push('satellite');
+            sources.push('celestrak');
+        }
+        if (document.getElementById('toggle-radio').checked) {
+            entityTypes.push('radio_station');
+            sources.push('radio_api');
+        }
+        if (document.getElementById('toggle-oilrig').checked) {
+            entityTypes.push('oil_rig');
+            sources.push('oil_rig_api');
+        }
+        if (document.getElementById('toggle-powergrid').checked) {
+            entityTypes.push('power_grid');
+            sources.push('power_grid_api');
+        }
+        if (document.getElementById('toggle-substation').checked) {
+            entityTypes.push('power_substation');
+            sources.push('power_grid_api');
+        }
+        if (document.getElementById('toggle-fir').checked) {
+            entityTypes.push('fir');
+            sources.push('fir_api');
+        }
+        if (document.getElementById('toggle-maritime').checked) {
+            entityTypes.push('maritime_boundary');
+            sources.push('maritime_api');
+        }
 
         if (entityTypes.length > 0) {
             params.append('entity_types', entityTypes.join(','));
+        }
+        
+        if (sources.length > 0) {
+            params.append('sources', sources.join(','));
         }
 
         const response = await fetch(`${API_BASE}/unified?${params}`);
@@ -395,6 +625,12 @@ function updateLayers(features) {
     const vessels = normalizedFeatures.filter(f => f.properties.entity_type === 'vessel');
     const thermal = normalizedFeatures.filter(f => f.properties.entity_type === 'thermal_event');
     const satellites = normalizedFeatures.filter(f => f.properties.entity_type === 'satellite');
+    const radios = normalizedFeatures.filter(f => f.properties.entity_type === 'radio_station');
+    const oilrigs = normalizedFeatures.filter(f => f.properties.entity_type === 'oil_rig');
+    const powergrids = normalizedFeatures.filter(f => f.properties.entity_type === 'power_grid');
+    const substations = normalizedFeatures.filter(f => f.properties.entity_type === 'power_substation');
+    const firs = normalizedFeatures.filter(f => f.properties.entity_type === 'fir');
+    const maritime = normalizedFeatures.filter(f => f.properties.entity_type === 'maritime_boundary');
 
     map.getSource('aircraft').setData({
         type: 'FeatureCollection',
@@ -415,6 +651,36 @@ function updateLayers(features) {
         type: 'FeatureCollection',
         features: satellites
     });
+
+    map.getSource('radio').setData({
+        type: 'FeatureCollection',
+        features: radios
+    });
+
+    map.getSource('oilrig').setData({
+        type: 'FeatureCollection',
+        features: oilrigs
+    });
+
+    map.getSource('powergrid').setData({
+        type: 'FeatureCollection',
+        features: powergrids
+    });
+
+    map.getSource('substation').setData({
+        type: 'FeatureCollection',
+        features: substations
+    });
+
+    map.getSource('fir').setData({
+        type: 'FeatureCollection',
+        features: firs
+    });
+
+    map.getSource('maritime').setData({
+        type: 'FeatureCollection',
+        features: maritime
+    });
 }
 
 // Update statistics display
@@ -426,6 +692,12 @@ function updateStats(metadata) {
     document.getElementById('vessel-count').textContent = metadata.entity_types?.vessel || 0;
     document.getElementById('thermal-count').textContent = metadata.entity_types?.thermal_event || 0;
     document.getElementById('satellite-count').textContent = metadata.entity_types?.satellite || 0;
+    document.getElementById('radio-count').textContent = metadata.entity_types?.radio_station || 0;
+    document.getElementById('oilrig-count').textContent = metadata.entity_types?.oil_rig || 0;
+    document.getElementById('powergrid-count').textContent = metadata.entity_types?.power_grid || 0;
+    document.getElementById('substation-count').textContent = metadata.entity_types?.power_substation || 0;
+    document.getElementById('fir-count').textContent = metadata.entity_types?.fir || 0;
+    document.getElementById('maritime-count').textContent = metadata.entity_types?.maritime_boundary || 0;
     document.getElementById('last-update').textContent = formatTimestamp(metadata.timestamp);
 }
 
@@ -446,6 +718,30 @@ function setupEventListeners() {
 
     document.getElementById('toggle-satellite').addEventListener('change', (e) => {
         map.setLayoutProperty('satellite', 'visibility', e.target.checked ? 'visible' : 'none');
+    });
+
+    document.getElementById('toggle-radio').addEventListener('change', (e) => {
+        map.setLayoutProperty('radio', 'visibility', e.target.checked ? 'visible' : 'none');
+    });
+
+    document.getElementById('toggle-oilrig').addEventListener('change', (e) => {
+        map.setLayoutProperty('oilrig', 'visibility', e.target.checked ? 'visible' : 'none');
+    });
+
+    document.getElementById('toggle-powergrid').addEventListener('change', (e) => {
+        map.setLayoutProperty('powergrid', 'visibility', e.target.checked ? 'visible' : 'none');
+    });
+
+    document.getElementById('toggle-substation').addEventListener('change', (e) => {
+        map.setLayoutProperty('substation', 'visibility', e.target.checked ? 'visible' : 'none');
+    });
+
+    document.getElementById('toggle-fir').addEventListener('change', (e) => {
+        map.setLayoutProperty('fir', 'visibility', e.target.checked ? 'visible' : 'none');
+    });
+
+    document.getElementById('toggle-maritime').addEventListener('change', (e) => {
+        map.setLayoutProperty('maritime', 'visibility', e.target.checked ? 'visible' : 'none');
     });
 
     // Refresh button

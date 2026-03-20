@@ -11,6 +11,12 @@ class EntityType(str, Enum):
     VESSEL = "vessel"
     THERMAL_EVENT = "thermal_event"
     SATELLITE = "satellite"
+    RADIO_STATION = "radio_station"
+    OIL_RIG = "oil_rig"
+    POWER_GRID = "power_grid"
+    POWER_SUBSTATION = "power_substation"
+    FIR = "fir"
+    MARITIME_BOUNDARY = "maritime_boundary"
 
 
 class DataSource(str, Enum):
@@ -19,6 +25,11 @@ class DataSource(str, Enum):
     AISSTREAM = "aisstream"
     FIRMS = "firms"
     CELESTRAK = "celestrak"
+    RADIO_API = "radio_api"
+    OIL_RIG_API = "oil_rig_api"
+    POWER_GRID_API = "power_grid_api"
+    FIR_API = "fir_api"
+    MARITIME_API = "maritime_api"
 
 
 class GeoJSONFeature(BaseModel):

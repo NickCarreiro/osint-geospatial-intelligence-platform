@@ -53,6 +53,7 @@ class BaseAdapter(ABC):
         base_delay: float = 1.0,
         max_delay: float = 30.0,
         timeout: Optional[float] = None,
+        **fetch_kwargs,
     ) -> List[GeoJSONFeature]:
         """Fetch data with retry and exponential backoff."""
         # Check if we're in a 429 cooldown
@@ -68,7 +69,7 @@ class BaseAdapter(ABC):
             try:
                 start_time = time.time()
                 result = await asyncio.wait_for(
-                    self.fetch(),
+                    self.fetch(**fetch_kwargs),
                     timeout=timeout,
                 )
                 latency_ms = (time.time() - start_time) * 1000

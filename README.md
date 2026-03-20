@@ -1,276 +1,107 @@
-# OSINT Geospatial Intelligence Platform
+# sit_mon
 
-A high-volume geospatial OSINT fusion platform that aggregates multiple public intelligence feeds into a single operational map for situational awareness.
+Backend-first OSINT data aggregation and JSON snapshot tooling.
 
-## Features
+The current focus is the backend. The FastAPI service is still available, but the active workflow is generating source-specific JSON files under `reports/` instead of building out the browser UI.
 
-- **Multi-source data aggregation**: Aircraft, vessels, thermal events, and satellites
-- **Real-time visualization**: Interactive MapLibre dashboard with live updates
-- **Unified API**: Single endpoint returning normalized GeoJSON
-- **Graceful degradation**: System continues operating even when sources fail
-- **Caching**: Redis-based caching with per-entity TTL
-- **Health monitoring**: Built-in health checks and metrics
+## Current report programs
 
-## Data Sources
+Each standalone program writes one stable JSON file by default:
 
-| Source | Type | Data |
-|--------|------|-------|
-| OpenSky Network | REST + OAuth | Aircraft state vectors, altitude, heading, velocity |
-| AISStream | WebSocket | Vessel position reports, MMSI, speed, course |
-| NASA FIRMS | REST | Thermal anomalies, fire radiative power, confidence |
-| CelesTrak TLE | REST + Propagation | Satellite orbital elements, real-time positions |
+| Program | Default output |
+| --- | --- |
+| `python3 generate_radio_report.py` | `reports/radio_api.json` |
+| `python3 generate_oil_rig_report.py` | `reports/oil_rig_api.json` |
+| `python3 generate_power_grid_report.py` | `reports/power_grid_api.json` |
+| `python3 generate_maritime_report.py` | `reports/maritime_api.json` |
+| `python3 generate_reports.py` | refreshes all of the above plus `reports/index.json` |
 
-## Technology Stack
+The report directory is created automatically if it does not exist.
 
-### Backend
-- Python 3.11+
-- FastAPI
-- Redis (caching)
-- httpx (HTTP client)
-- websockets (WebSocket client)
-- skyfield (orbital propagation)
+## Quick start
 
-### Frontend
-- MapLibre GL JS
-- Vanilla JavaScript
+### Start the backend API
 
-## Quick Start
-
-### Prerequisites
-
-- Python 3.11+ (Python 3.13+ requires Rust toolchain for pydantic-core)
-- Redis server
-- API credentials (see `.env` file)
-
-### Installation
-
-1. Clone the repository:
 ```bash
 cd /home/admin/access/homelab/sit_mon
-```
-
-2. Run the startup script:
-```bash
 ./start.sh
 ```
 
-The script will:
-- Create a Python virtual environment
-- Install dependencies
-- Start Redis (if not running)
-- Launch the application
+Available endpoints:
 
-### Python 3.13+ Note
+- API: `http://localhost:8002/api/unified`
+- Health: `http://localhost:8002/health`
+- Docs: `http://localhost:8002/docs`
 
-If you're using Python 3.13 or newer, you may need to install Rust first:
+### Generate snapshot files
 
-```bash
-# On Ubuntu/Debian
-sudo apt-get install rustc cargo
-
-# Then run the startup script
-./start.sh
-```
-
-### Access
-
-- **Frontend**: http://localhost:8002/
-- **API Documentation**: http://localhost:8002/docs
-- **Health Check**: http://localhost:8002/health
-- **Unified API**: http://localhost:8002/api/unified
-
-## Configuration
-
-Configuration is managed through environment variables in the `.env` file.
-
-### Key Settings
+Run any source program directly:
 
 ```bash
-# API
-API_HOST=0.0.0.0
-API_PORT=8002
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# OpenSky
-OPENSKY_CLIENT_ID=your_client_id
-OPENSKY_CLIENT_SECRET=your_client_secret
-
-# AISStream
-AISSTREAM_API_KEY=your_api_key
-
-# FIRMS
-FIRMS_API_KEY=your_api_key
+python3 generate_radio_report.py
+python3 generate_oil_rig_report.py
+python3 generate_power_grid_report.py
+python3 generate_maritime_report.py
 ```
 
-## API Endpoints
+Or refresh all source files in one pass:
 
-### GET /api/unified
-
-Fetch unified OSINT data from all sources.
-
-**Query Parameters:**
-- `lamin`, `lomin`, `lamax`, `lomax`: Bounding box
-- `start_time`, `end_time`: Time window (ISO 8601)
-- `entity_types`: Comma-separated entity types (aircraft, vessel, thermal_event, satellite)
-- `sources`: Comma-separated sources (opensky, aisstream, firms, celestrak)
-- `use_cache`: Use cache if available (default: true)
-
-**Response:**
-```json
-{
-  "type": "FeatureCollection",
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [lon, lat]
-      },
-      "properties": {
-        "source": "opensky",
-        "entity_type": "aircraft",
-        "timestamp": "2024-01-01T00:00:00",
-        "identifier": "abc123",
-        "metadata": { ... }
-      }
-    }
-  ],
-  "metadata": {
-    "count": 1000,
-    "latency_ms": 250.5,
-    "timestamp": "2024-01-01T00:00:00",
-    "sources": { ... },
-    "entity_types": { ... }
-  }
-}
+```bash
+python3 generate_reports.py
 ```
 
-### GET /health
+## Country and bbox filters
 
-Get system health status.
+All report programs support either a resolved country or an explicit bounding box.
 
-**Response:**
-```json
-{
-  "status": "healthy",
-  "sources": [
-    {
-      "source": "opensky",
-      "healthy": true,
-      "last_update": "2024-01-01T00:00:00",
-      "entity_count": 5000,
-      "latency_ms": 200.5
-    }
-  ],
-  "metrics": { ... }
-}
+Examples:
+
+```bash
+python3 generate_power_grid_report.py --country Luxembourg
+python3 generate_oil_rig_report.py --lamin 28.6 --lomin -90.6 --lamax 28.8 --lomax -90.2
+python3 generate_reports.py --sources power_grid_api,radio_api --country Luxembourg
 ```
 
-## Data Schema
+Rules:
 
-All entities are returned in a common GeoJSON format:
+- Use either `--country` or the four bbox flags together.
+- `Radio` and `Maritime` use the resolved country code directly when possible.
+- `Oil Rig` and `Power Grid` use the resolved country bounding box.
 
-```json
-{
-  "type": "Feature",
-  "geometry": {
-    "type": "Point",
-    "coordinates": [longitude, latitude]
-  },
-  "properties": {
-    "source": "opensky|aisstream|firms|celestrak",
-    "entity_type": "aircraft|vessel|thermal_event|satellite",
-    "timestamp": "ISO 8601 UTC",
-    "identifier": "unique_id",
-    "metadata": {
-      // Source-specific fields
-    }
-  }
-}
-```
+## Current backend snapshot sources
 
-## Entity Types
+- `radio_api`: Radio Browser stations
+- `oil_rig_api`: offshore infrastructure from OpenStreetMap Overpass queries
+- `power_grid_api`: transmission lines and substations from OpenStreetMap Overpass queries
+- `maritime_api`: maritime boundaries from Natural Earth
 
-### Aircraft
-- icao24
-- callsign
-- altitude
-- heading
-- velocity
-- on_ground
+## Report file shape
 
-### Vessel
-- mmsi
-- name
-- speed
-- course
-- ship_type
+Each source JSON file includes:
 
-### Thermal Event
-- confidence
-- fire_radiative_power
-- satellite_source
+- `source`
+- `report_file`
+- `generated_at`
+- `status`
+- `healthy`
+- `error_message`
+- `warning_message`
+- `country`
+- `bbox`
+- `entity_count`
+- `latency_ms`
+- `source_url`
+- `features`
 
-### Satellite
-- norad_id
-- name
-- altitude
-- inclination
+`status` values:
 
-## Performance Targets
+- `ok`: source completed normally
+- `partial`: source returned usable data with a warning
+- `empty`: source completed but returned no entities
+- `error`: source failed
 
-| Metric | Goal |
-|--------|------|
-| API latency | <500ms |
-| Map refresh | <1s |
-| Ingestion update | <60s |
-| WebSocket lag | <5s |
+## Notes
 
-## Data Freshness
-
-| Entity | TTL |
-|--------|-----|
-| Aircraft | 120s |
-| Vessels | 900s |
-| Satellites | 300s |
-| Thermal events | 24h |
-
-## Project Structure
-
-```
-sit_mon/
-├── backend/
-│   ├── app/
-│   │   ├── adapters/          # Data source adapters
-│   │   ├── api/               # API endpoints
-│   │   ├── cache/             # Redis cache wrapper
-│   │   ├── config.py          # Configuration
-│   │   ├── main.py            # FastAPI app
-│   │   └── models.py          # Pydantic models
-│   └── requirements.txt
-├── frontend/
-│   ├── index.html
-│   └── src/
-│       └── main.js            # MapLibre dashboard
-├── .env                       # Environment configuration
-├── start.sh                   # Startup script
-└── README.md
-```
-
-## Security
-
-- Credentials stored in environment variables
-- Source timeouts implemented
-- API responses sanitized
-- Input parameters validated
-- No hardcoded credentials
-
-## License
-
-This project is for educational and research purposes only.
-
-## Disclaimer
-
-This platform is purely a data aggregation and visualization tool. It does not perform intelligence analysis, classify military activity, make predictions about conflict, or infer intent of entities.
+- Public Overpass-backed sources can still degrade upstream. When that happens, the JSON report should say so explicitly instead of failing silently.
+- Generated artifacts such as `reports/`, `reports_*/`, `.cache/`, and `tmp/` are intentionally ignored by git.
+- Frontend files may still exist in the repo, but they are not the current development focus.

@@ -12,12 +12,26 @@ from app.adapters import (
     AISStreamAdapter,
     FIRMSAdapter,
     CelesTrakAdapter,
+    RadioAdapter,
+    OilRigAdapter,
+    PowerGridAdapter,
+    FIRAdapter,
+    MaritimeAdapter,
 )
 from app.cache import cache
+from app.reporting import REPORT_SOURCES
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["health"])
+
+def get_source_health_fetch_kwargs(source: DataSource) -> dict:
+    """Get default fetch kwargs for source health checks."""
+    report_source = REPORT_SOURCES.get(source.value)
+    if not report_source or not report_source.default_bbox:
+        return {}
+    return report_source.default_bbox.model_dump()
+
 
 # Global metrics tracking
 _metrics: Dict[str, Any] = {
@@ -117,6 +131,11 @@ async def check_all_sources() -> list[SourceStatus]:
         check_aisstream(),
         check_firms(),
         check_celestrak(),
+        check_radio(),
+        check_oil_rig(),
+        check_power_grid(),
+        check_fir(),
+        check_maritime(),
     ]
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -139,7 +158,8 @@ async def check_opensky() -> SourceStatus:
         start_time = datetime.utcnow()
         features = await adapter.fetch_with_retry(
             max_retries=1,
-            timeout=10.0,
+            timeout=REPORT_SOURCES[DataSource.OIL_RIG_API.value].timeout_s,
+            **get_source_health_fetch_kwargs(DataSource.OIL_RIG_API),
         )
         end_time = datetime.utcnow()
 
@@ -170,7 +190,8 @@ async def check_aisstream() -> SourceStatus:
         start_time = datetime.utcnow()
         features = await adapter.fetch_with_retry(
             max_retries=1,
-            timeout=15.0,
+            timeout=REPORT_SOURCES[DataSource.POWER_GRID_API.value].timeout_s,
+            **get_source_health_fetch_kwargs(DataSource.POWER_GRID_API),
         )
         end_time = datetime.utcnow()
 
@@ -247,6 +268,163 @@ async def check_celestrak() -> SourceStatus:
         record_failure("celestrak")
         return SourceStatus(
             source=DataSource.CELESTRAK,
+            healthy=False,
+            error_message=str(e),
+            entity_count=0,
+        )
+    finally:
+        await adapter.close()
+
+
+async def check_radio() -> SourceStatus:
+    """Check Radio Browser API source health."""
+    adapter = RadioAdapter()
+
+    try:
+        start_time = datetime.utcnow()
+        features = await adapter.fetch_with_retry(
+            max_retries=1,
+            timeout=10.0,
+        )
+        end_time = datetime.utcnow()
+
+        latency_ms = (end_time - start_time).total_seconds() * 1000
+        update_latency("radio_api", latency_ms)
+        update_entity_count("radio_api", len(features))
+
+        return adapter.get_status()
+
+    except Exception as e:
+        logger.error(f"Radio API health check failed: {e}")
+        record_failure("radio_api")
+        return SourceStatus(
+            source=DataSource.RADIO_API,
+            healthy=False,
+            error_message=str(e),
+            entity_count=0,
+        )
+    finally:
+        await adapter.close()
+
+
+async def check_oil_rig() -> SourceStatus:
+    """Check Oil Rig API source health."""
+    adapter = OilRigAdapter()
+
+    try:
+        start_time = datetime.utcnow()
+        features = await adapter.fetch_with_retry(
+            max_retries=1,
+            timeout=REPORT_SOURCES[DataSource.OIL_RIG_API.value].timeout_s,
+            **get_source_health_fetch_kwargs(DataSource.OIL_RIG_API),
+        )
+        end_time = datetime.utcnow()
+
+        latency_ms = (end_time - start_time).total_seconds() * 1000
+        update_latency("oil_rig_api", latency_ms)
+        update_entity_count("oil_rig_api", len(features))
+
+        return adapter.get_status()
+
+    except Exception as e:
+        logger.error(f"Oil Rig API health check failed: {e}")
+        record_failure("oil_rig_api")
+        return SourceStatus(
+            source=DataSource.OIL_RIG_API,
+            healthy=False,
+            error_message=str(e),
+            entity_count=0,
+        )
+    finally:
+        await adapter.close()
+
+
+async def check_power_grid() -> SourceStatus:
+    """Check Power Grid API source health."""
+    adapter = PowerGridAdapter()
+
+    try:
+        start_time = datetime.utcnow()
+        features = await adapter.fetch_with_retry(
+            max_retries=1,
+            timeout=REPORT_SOURCES[DataSource.POWER_GRID_API.value].timeout_s,
+            **get_source_health_fetch_kwargs(DataSource.POWER_GRID_API),
+        )
+        end_time = datetime.utcnow()
+
+        latency_ms = (end_time - start_time).total_seconds() * 1000
+        update_latency("power_grid_api", latency_ms)
+        update_entity_count("power_grid_api", len(features))
+
+        return adapter.get_status()
+
+    except Exception as e:
+        logger.error(f"Power Grid API health check failed: {e}")
+        record_failure("power_grid_api")
+        return SourceStatus(
+            source=DataSource.POWER_GRID_API,
+            healthy=False,
+            error_message=str(e),
+            entity_count=0,
+        )
+    finally:
+        await adapter.close()
+
+
+async def check_fir() -> SourceStatus:
+    """Check FIR API source health."""
+    adapter = FIRAdapter()
+
+    try:
+        start_time = datetime.utcnow()
+        features = await adapter.fetch_with_retry(
+            max_retries=1,
+            timeout=10.0,
+        )
+        end_time = datetime.utcnow()
+
+        latency_ms = (end_time - start_time).total_seconds() * 1000
+        update_latency("fir_api", latency_ms)
+        update_entity_count("fir_api", len(features))
+
+        return adapter.get_status()
+
+    except Exception as e:
+        logger.error(f"FIR API health check failed: {e}")
+        record_failure("fir_api")
+        return SourceStatus(
+            source=DataSource.FIR_API,
+            healthy=False,
+            error_message=str(e),
+            entity_count=0,
+        )
+    finally:
+        await adapter.close()
+
+
+async def check_maritime() -> SourceStatus:
+    """Check Maritime API source health."""
+    adapter = MaritimeAdapter()
+
+    try:
+        start_time = datetime.utcnow()
+        features = await adapter.fetch_with_retry(
+            max_retries=1,
+            timeout=10.0,
+        )
+        end_time = datetime.utcnow()
+
+        latency_ms = (end_time - start_time).total_seconds() * 1000
+        update_latency("maritime_api", latency_ms)
+        update_entity_count("maritime_api", len(features))
+
+        return adapter.get_status()
+
+    except Exception as e:
+        logger.error(f"Maritime API health check failed: {e}")
+        record_failure("maritime_api")
+        return SourceStatus(
+            source=DataSource.MARITIME_API,
             healthy=False,
             error_message=str(e),
             entity_count=0,

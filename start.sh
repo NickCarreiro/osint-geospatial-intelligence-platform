@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# OSINT Geospatial Intelligence Platform - Startup Script
+# sit_mon backend startup script
 
 set -e
 
 echo "=========================================="
-echo "OSINT Geospatial Intelligence Platform"
+echo "sit_mon backend services"
 echo "=========================================="
 echo ""
 
@@ -79,11 +79,16 @@ fi
 
 # Start the application
 echo ""
-echo "Starting the OSINT Platform..."
-echo "API will be available at: http://0.0.0.0:8002"
-echo "Frontend will be available at: http://0.0.0.0:8002/"
-echo "API documentation: http://0.0.0.0:8002/docs"
-echo "Health check: http://0.0.0.0:8002/health"
+echo "Starting backend services..."
+echo "API: http://0.0.0.0:8002"
+echo "Docs: http://0.0.0.0:8002/docs"
+echo "Health: http://0.0.0.0:8002/health"
+echo "Batch reports: python3 generate_reports.py"
+echo "Per-source reports:"
+echo "  python3 generate_radio_report.py"
+echo "  python3 generate_oil_rig_report.py"
+echo "  python3 generate_power_grid_report.py"
+echo "  python3 generate_maritime_report.py"
 echo ""
 echo "Press Ctrl+C to stop"
 echo ""

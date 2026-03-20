@@ -176,6 +176,45 @@
                 <input type="checkbox" id="toggle-satellite" checked>
                 <span>Satellites</span>
             </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">📻</span>
+                <input type="checkbox" id="toggle-radio">
+                <span>Radio Stations</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">🛢️</span>
+                <input type="checkbox" id="toggle-oilrig">
+                <span>Oil Rigs</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">⚡</span>
+                <input type="checkbox" id="toggle-powergrid">
+                <span>Power Grid</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">🔌</span>
+                <input type="checkbox" id="toggle-substation">
+                <span>Substations</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">✈️</span>
+                <input type="checkbox" id="toggle-fir">
+                <span>Flight Regions</span>
+            </div>
+            <div class="layer-toggle">
+                <span class="layer-icon">🌊</span>
+                <input type="checkbox" id="toggle-maritime">
+                <span>Maritime Boundaries</span>
+            </div>
+        </div>
+
+        <!-- Radio Player -->
+        <div class="control-group" id="radio-player-container" style="display: none;">
+            <label>📻 Live Radio</label>
+            <div style="background: rgba(0,0,0,0.5); padding: 10px; border-radius: 4px;">
+                <audio id="radio-player" controls style="width: 100%;"></audio>
+                <div id="radio-station-info" style="font-size: 12px; margin-top: 5px; color: #aaa;"></div>
+            </div>
         </div>
 
         <button class="refresh-btn" id="refresh-btn">
@@ -200,6 +239,26 @@
                 <span>CelesTrak</span>
                 <span>Checking...</span>
             </div>
+            <div class="health-item" id="health-radio">
+                <span>Radio API</span>
+                <span>Checking...</span>
+            </div>
+            <div class="health-item" id="health-oilrig">
+                <span>Oil Rig API</span>
+                <span>Checking...</span>
+            </div>
+            <div class="health-item" id="health-powergrid">
+                <span>Power Grid API</span>
+                <span>Checking...</span>
+            </div>
+            <div class="health-item" id="health-fir">
+                <span>FIR API</span>
+                <span>Checking...</span>
+            </div>
+            <div class="health-item" id="health-maritime">
+                <span>Maritime API</span>
+                <span>Checking...</span>
+            </div>
         </div>
     </div>
 
@@ -209,6 +268,12 @@
         <div>Vessels: <span id="vessel-count">0</span></div>
         <div>Thermal: <span id="thermal-count">0</span></div>
         <div>Satellites: <span id="satellite-count">0</span></div>
+        <div>Radio: <span id="radio-count">0</span></div>
+        <div>Oil Rigs: <span id="oilrig-count">0</span></div>
+        <div>Power Grid: <span id="powergrid-count">0</span></div>
+        <div>Substations: <span id="substation-count">0</span></div>
+        <div>FIRs: <span id="fir-count">0</span></div>
+        <div>Maritime: <span id="maritime-count">0</span></div>
         <div>Last Update: <span id="last-update">Never</span></div>
     </div>
 

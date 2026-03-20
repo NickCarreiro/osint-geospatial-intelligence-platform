@@ -1,10 +1,9 @@
-"""Main FastAPI application for the OSINT platform."""
+"""Main FastAPI application for the OSINT backend and report tooling."""
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.api import unified_router, health_router
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     # Startup
-    logger.info("Starting OSINT Geospatial Intelligence Platform")
+    logger.info("Starting OSINT backend services")
     logger.info(f"API will be available at http://{settings.api_host}:{settings.api_port}")
 
     yield
@@ -34,8 +33,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="OSINT Geospatial Intelligence Platform",
-    description="Unified platform for aggregating and visualizing multiple OSINT data sources",
+    title="OSINT Backend Services",
+    description="Backend APIs and JSON snapshot tooling for the sit_mon data sources",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -53,23 +52,17 @@ app.add_middleware(
 app.include_router(unified_router)
 app.include_router(health_router)
 
-# Mount static files for frontend
-try:
-    app.mount("/", StaticFiles(directory="../frontend", html=True), name="frontend")
-    logger.info("Frontend mounted at /")
-except Exception as e:
-    logger.warning(f"Could not mount frontend: {e}")
-
 
 @app.get("/")
 async def root():
     """Root endpoint."""
     return {
-        "message": "OSINT Geospatial Intelligence Platform",
+        "message": "sit_mon backend services",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health",
         "api": "/api/unified",
+        "reports_dir": "reports/",
     }
 
 
