@@ -14,6 +14,7 @@ Each standalone program writes one stable JSON file by default:
 | `python3 generate_oil_rig_report.py` | `reports/oil_rig_api.json` |
 | `python3 generate_power_grid_report.py` | `reports/power_grid_api.json` |
 | `python3 generate_maritime_report.py` | `reports/maritime_api.json` |
+| `python3 generate_power_grid_country_reports.py` | rolling country files under `reports/openpass/` |
 | `python3 generate_reports.py` | refreshes all of the above plus `reports/index.json` |
 
 The report directory is created automatically if it does not exist.
@@ -42,12 +43,21 @@ python3 generate_radio_report.py
 python3 generate_oil_rig_report.py
 python3 generate_power_grid_report.py
 python3 generate_maritime_report.py
+python3 generate_power_grid_country_reports.py --sleep-seconds 1
 ```
 
 Or refresh all source files in one pass:
 
 ```bash
 python3 generate_reports.py
+```
+
+For rolling country-based Power Grid polling with the existing Natural Earth country boundaries:
+
+```bash
+python3 generate_power_grid_country_reports.py
+python3 generate_power_grid_country_reports.py --start-code LU --limit 10
+python3 generate_power_grid_country_reports.py --countries Luxembourg,Belgium --sleep-seconds 0
 ```
 
 ## Country and bbox filters
@@ -67,6 +77,7 @@ Rules:
 - Use either `--country` or the four bbox flags together.
 - `Radio` and `Maritime` use the resolved country code directly when possible.
 - `Oil Rig` and `Power Grid` use the resolved country bounding box.
+- `generate_power_grid_country_reports.py` iterates the cached boundary list and writes files such as `reports/openpass/LUpowergrid.json`.
 
 ## Current backend snapshot sources
 

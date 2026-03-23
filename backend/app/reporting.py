@@ -181,6 +181,7 @@ async def write_source_report(
     output_dir: Optional[Path] = None,
     bbox_override: Optional[BoundingBox] = None,
     country_override: Optional[ResolvedCountry] = None,
+    report_path: Optional[Path] = None,
 ) -> tuple[dict, Path]:
     """Generate and write a single source report file."""
     output_dir = get_reports_dir(output_dir)
@@ -192,7 +193,9 @@ async def write_source_report(
         bbox_override=bbox_override,
         country_override=country_override,
     )
-    report_path = output_dir / source.output_filename
+    report_path = (report_path or (output_dir / source.output_filename)).resolve()
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report["report_file"] = report_path.name
     report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
     return report, report_path
 

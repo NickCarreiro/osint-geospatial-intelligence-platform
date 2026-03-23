@@ -220,3 +220,36 @@ async def resolve_country(country_query: str) -> ResolvedCountry:
         iso_a3=_best_alpha3_code(properties),
         bbox=_geometry_bbox(best_feature.get("geometry", {})),
     )
+
+
+async def list_countries() -> list[ResolvedCountry]:
+    """Return all countries with defined boundaries and usable ISO alpha-2 codes."""
+    features = await _load_country_features()
+    countries: list[ResolvedCountry] = []
+    seen_codes: set[str] = set()
+
+    for feature in features:
+        properties = feature.get("properties", {})
+        iso_a2 = _best_alpha2_code(properties)
+        if not iso_a2 or iso_a2 in seen_codes:
+            continue
+
+        try:
+            bbox = _geometry_bbox(feature.get("geometry", {}))
+        except CountryResolutionError:
+            continue
+
+        countries.append(
+            ResolvedCountry(
+                query=properties.get("NAME") or properties.get("ADMIN") or iso_a2,
+                name=properties.get("NAME") or properties.get("ADMIN") or iso_a2,
+                admin=properties.get("ADMIN") or properties.get("NAME") or iso_a2,
+                iso_a2=iso_a2,
+                iso_a3=_best_alpha3_code(properties),
+                bbox=bbox,
+            )
+        )
+        seen_codes.add(iso_a2)
+
+    countries.sort(key=lambda country: (country.iso_a2 or "", country.name))
+    return countries
